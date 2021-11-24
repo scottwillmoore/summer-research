@@ -54,6 +54,12 @@ The Mobile experience is powered by a Qualcomm Snapdragon XR2 Platform. It is an
 
 - Establish communication between Baxter and the project
 
+- Update the Baxter meshes from the communication
+
+- Display the user from Baxter's POV
+
+- Display the user from their POV relative to Baxter
+
 - ...
 
 ## References
@@ -83,6 +89,8 @@ The latest version released only supports Ubuntu 14.04 with ROS Indigo.
 It may be simpler to use a Docker-based development environment, which may simply the process due to the old, outdated dependencies.
 
 What Wi-Fi network can we connect to the robot.
+
+Baxter offers a variety of methods to manipulate the arms. It also provides a simple IK solver. However, it is probably much better to use a motion planning system such as MoveIt (Baxter has examples) which will provide real-time collision avoidance and motion planning.
 
 ## Tasks
 
