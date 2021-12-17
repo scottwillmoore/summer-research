@@ -1,100 +1,73 @@
-# Install Ubuntu
-
-ARG UBUNTU_DISTRIBUTION="trusty"
-
-FROM ubuntu:${UBUNTU_DISTRIBUTION}
-
-# Install keys and sources for ROS
-
-ARG ROS_DISTRIBUTION="indigo"
-ARG ROS_SNAPSHOT="final"
-
-RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 4B63CF8FDE49746E98FA01DDAD19BAB3CBF125EA && \
-    echo "deb http://snapshots.ros.org/${ROS_DISTRIBUTION}/${ROS_SNAPSHOT}/ubuntu trusty main" > /etc/apt/sources.list.d/ros.list
-
-# Install dependencies for ROS
+FROM ubuntu:trusty
 
 RUN apt-get update && \
-    apt-get install -y \
-        python-rosdep \
-        python-rosinstall \
-        python-vcstools
+    apt-get install --assume-yes --no-install-recommends \
+        build-essential \
+        curl
+
+# https://www.linuxfromscratch.org/lfs/view/stable/chapter08/openssl.html
+
+ARG OPENSSL_VERSION="1.1.1m"
+    
+RUN cd /tmp && \
+    curl -O -k https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz && \
+    tar -xf openssl-${OPENSSL_VERSION}.tar.gz && \
+    cd openssl-${OPENSSL_VERSION} && \
+    ls && \
+    ./config \
+        --openssldir=/usr/local/openssl \
+        --prefix=/usr/local/openssl && \
+    make && \
+    make install
+
+ENV PATH=/usr/local/openssl/bin${PATH:+:$PATH}
+ENV LD_LIBRARY_PATH=/usr/local/openssl/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+
+# https://www.linuxfromscratch.org/blfs/view/stable/general/python3.html
+
+RUN apt-get update && \
+    apt-get install --assume-yes --no-install-recommends \
+        zlib1g-dev
+
+ARG PYTHON_VERSION="3.10.1"
+
+RUN cd /tmp && \
+    curl -O -k https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz && \
+    tar -xf Python-${PYTHON_VERSION}.tar.xz && \
+    cd Python-${PYTHON_VERSION} && \
+    ./configure \
+        --enable-shared \
+        --prefix=/usr/local/python \
+        --with-openssl=/usr/local/openssl && \
+    make && \
+    make install
+
+# https://www.linuxfromscratch.org/blfs/view/stable/x/mesa.html
+
+ENV PATH=/usr/local/python/bin${PATH:+:$PATH}
+ENV LD_LIBRARY_PATH=/usr/local/python/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+
+RUN pip3 install \
+        mako \
+        meson
+
+RUN apt-get update && \
+    apt-get install --assume-yes --no-install-recommends \
+        bison \
+        flex \
+        libx11-dev \
+        libxpat1-dev \
+        llvm-dev \
+        pkg-config
+
+ARG MESA_VERSION="21.3.1"
         
-# Install ROS
+RUN cd /tmp && \
+    curl -O -k https://archive.mesa3d.org/mesa-${MESA_VERSION}.tar.xz && \
+    tar -xf mesa-${MESA_VERSION}.tar.xz && \
+    cd mesa-${MESA_VERSION} && \
+    mkdir build && \
+    cd build && \
+    meson \
+        --prefix=/usr/local/mesa
 
-ARG ROS_PACKAGE="desktop-full"
-
-RUN apt-get update && \
-    apt-get install -y \
-        ros-${ROS_DISTRIBUTION}-${ROS_PACKAGE}
-
-# Setup dependencies for ROS
-
-RUN rosdep init && \
-    rosdep update --include-eol-distros
-
-# Create a ROS workspace for Baxter
-
-RUN . /opt/ros/indigo/setup.sh && \
-    mkdir -p /opt/baxter/src && \
-    cd /opt/baxter && \
-    catkin_make && \
-    catkin_make install
-
-# Install dependencies for Baxter
-
-RUN apt-get update && \
-    apt-get install -y \
-        python-argparse \
-        python-wstool
-    
-# Install Baxter
-    
-RUN . /opt/ros/indigo/setup.sh && \
-    cd /opt/baxter/src && \
-    wstool init . && \
-    wstool merge https://raw.githubusercontent.com/RethinkRobotics/baxter/master/baxter_sdk.rosinstall && \
-    wstool update
-
-# Set the default locale
-
-ARG LOCALE="en_US.UTF-8"
-
-RUN locale-gen en_US.UTF-8 && \
-    update-locale LANG=en_US.UTF-8
-
-ENV LANG=en_US.UTF-8
-
-# Install dependencies for the user
-
-RUN apt-get update && \
-    apt-get install -y \
-        curl \
-        less \
-        sudo \
-        unzip \
-        vim \
-        wget \
-        zip
-
-# Create the user
-
-ARG USERNAME="scott"
-
-RUN useradd -m ${USERNAME} 
-
-USER ${USERNAME}
-
-# Create a ROS workspace for the user
-
-RUN . /opt/baxter/devel/setup.sh && \
-    mkdir -p ~/workspace/src && \
-    cd ~/workspace && \
-    catkin_make && \
-    catkin_make install
-
-# Source the workspace for the user
-
-RUN echo "source ~/workspace/devel/setup.bash" >> ~/.bashrc && \
-    echo "export ROS_MASTER_URI=\"\"" >> ~/.bashrc && \
-    echo "export ROS_HOSTNAME=\"\"" >> ~/.bashrc
