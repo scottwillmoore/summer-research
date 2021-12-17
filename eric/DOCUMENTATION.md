@@ -303,7 +303,7 @@ ros -> roboticstoolbox:
 [0, 14, 15, 12, 13, 16, 17, 18, 10, 11, 5, 6, 3, 4, 7, 8, 9, 1, 2]
 ```
 
-## the indices need to be matched similarly for the position-based servoing code
+### the indices need to be matched similarly for the position-based servoing code
 
 
 ### name: 
@@ -348,15 +348,39 @@ ros -> roboticstoolbox:
 18 'l_gripper_r_finger'
 ```
 
-## TRY:
-Baxter API
-brute force setting
+### different joint states on gazebo&roboticstoolbox as compared to real robot
 
-## problem is?:
+### possible problems?
 - rtb associates each joint with a link  
 - even though head link actually has two joints (head_pan, head_nod) this is not accounted for  
 - torso also has no joint, but shows as joint in ros  
 - also the gripper links/joints are specified together, while for ros it is somehow less connected (do not show together in topic /robot/joint_states or /robot/joint_names)
 
+## inside sim container: installation of python3 interferes with python2 codes ran by ros
+env variable in sim container: something similar to this
+```
+PYTHONPATH=/usr/lib/python2.7/dist-packages:/opt/baxter/devel/lib/python2.7/dist-packages:/opt/ros/indigo/lib/python2.7/dist-packages:/home/scott/.local/lib/python3.9/site-packages/
+```
+- python2.7 packages first:  
+cannot run script using rtb
+`ImportError: /usr/lib/python2.7/dist-packages/numpy/core/multiarray.so: undefined symbol: _Py_ZeroStruct`  
+needs `/home/scott/.local/lib/python3.9/site-packages` in front
 
-PYTHONPATH=/opt/baxter/devel/lib/python2.7/dist-packages:/opt/ros/indigo/lib/python2.7/dist-packages:/usr/lib/python2.7/dist-packages:/home/scott/.local/lib/python3.9/site-packages/
+
+
+- python3.9 packages first:
+cannot run baxter_tools
+`class YAMLObject(metaclass=YAMLObjectMetaclass): ^ SyntaxError: invalid syntax`  
+needs `/usr/lib/python2.7/dist-packages` in front
+
+### possible workaround:
+write shell command file that exports required env variables (python3) and keep original python2 paths for other times
+
+
+## TODO: 
+- write dockerfile (based on sim one in Dockerfile_mmc) to install python3 and roboticstoolbox
+- improve `baxter_demo_robot.py` code if needed
+
+## issues:
+- can move baxter's physical arms like in simulator, but motion is jagged
+- have to use docker container, messages published in u20.04 ros noetic cannot be received by baxter and container (u14.04, ros indigo)
