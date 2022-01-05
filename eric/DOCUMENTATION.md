@@ -16,6 +16,7 @@ nmcli connection modify
 
 -f for different dockerfile name, defaults to Dockerfile
 -t for image name
+--network=host
 
 ## docker run
 ```
@@ -384,3 +385,16 @@ write shell command file that exports required env variables (python3) and keep 
 ## issues:
 - can move baxter's physical arms like in simulator, but motion is jagged
 - have to use docker container, messages published in u20.04 ros noetic cannot be received by baxter and container (u14.04, ros indigo)
+
+
+
+# Fetch - manipulation
+
+## segmentation
+Detectron2
+
+## determine grasp poses
+For each item (with segmentation) / show all poses (no segmentation)  
+User chooses item / chooses pose  
+
+## moveit to plan and grasp object

@@ -1,8 +1,112 @@
-FROM ubuntu:trusty
+# # Install Ubuntu
+
+# ARG UBUNTU_DISTRIBUTION="trusty"
+
+# FROM ubuntu:${UBUNTU_DISTRIBUTION}
+
+# NVIDIA OpenGL ubuntu image
+
+FROM nvidia/opengl:1.1-glvnd-runtime-ubuntu14.04
+
+# Install keys and sources for ROS
+
+ARG ROS_DISTRIBUTION="indigo"
+ARG ROS_SNAPSHOT="final"
+
+RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 4B63CF8FDE49746E98FA01DDAD19BAB3CBF125EA && \
+    echo "deb http://snapshots.ros.org/${ROS_DISTRIBUTION}/${ROS_SNAPSHOT}/ubuntu trusty main" > /etc/apt/sources.list.d/ros.list
+
+
+# Install dependencies for ROS
+
+COPY sources.list /etc/apt/
+
+RUN apt-get update && \
+    apt-get install -y \
+        python-rosdep \
+        python-rosinstall \
+        python-vcstools
+        
+# Install ROS
+
+ARG ROS_PACKAGE="desktop-full"
+
+RUN apt-get update && \
+    apt-get install -y \
+        ros-${ROS_DISTRIBUTION}-${ROS_PACKAGE}
+
+# Setup dependencies for ROS
+
+RUN rosdep init && \
+    rosdep update --include-eol-distros
+
+# Create a ROS workspace for Baxter
+
+RUN . /opt/ros/indigo/setup.sh && \
+    mkdir -p /opt/baxter/src && \
+    cd /opt/baxter && \
+    catkin_make && \
+    catkin_make install
+
+# Install dependencies for Baxter
+
+RUN apt-get update && \
+    apt-get install -y \
+        python-argparse \
+        python-wstool
+    
+# Install Baxter
+    
+RUN . /opt/ros/indigo/setup.sh && \
+    cd /opt/baxter/src && \
+    wstool init . && \
+    wstool merge https://raw.githubusercontent.com/RethinkRobotics/baxter/master/baxter_sdk.rosinstall && \
+    wstool update
+
+# Install dependencies for Baxter Simulator
+
+RUN apt-get update && \
+    apt-get install -y \
+    gazebo2 \
+    ros-indigo-qt-build \
+    ros-indigo-driver-common \
+    ros-indigo-gazebo-ros-control \
+    ros-indigo-gazebo-ros-pkgs \
+    ros-indigo-ros-control \
+    ros-indigo-control-toolbox \
+    ros-indigo-realtime-tools \
+    ros-indigo-ros-controllers \
+    ros-indigo-xacro \
+    python-wstool \
+    ros-indigo-tf-conversions \
+    ros-indigo-kdl-parser
+
+# Install Baxter Simulator
+
+RUN cd /opt/baxter/src && \
+    wstool merge https://raw.githubusercontent.com/RethinkRobotics/baxter_simulator/master/baxter_simulator.rosinstall && \
+    wstool update && \
+    . /opt/baxter/devel/setup.sh && \
+    cd /opt/baxter && \
+    catkin_make && \
+    catkin_make install
+
+
+# Install python3 dependencies
 
 RUN apt-get update && \
     apt-get install --assume-yes --no-install-recommends \
         build-essential \
+        zlib1g-dev \
+        libncurses5-dev \
+        libgdbm-dev \
+        libnss3-dev \
+        libssl-dev \
+        libreadline-dev \
+        libffi-dev \
+        libsqlite3-dev \
+        wget \
+        libbz2-dev \
         curl
 
 # https://www.linuxfromscratch.org/lfs/view/stable/chapter08/openssl.html
@@ -23,14 +127,18 @@ RUN cd /tmp && \
 # these env variables will be set in the container by default, avoid
 ENV PATH=/usr/local/openssl/bin${PATH:+:$PATH}
 ENV LD_LIBRARY_PATH=/usr/local/openssl/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+ENV PATH=/usr/local/python/bin${PATH:+:$PATH}
+ENV LD_LIBRARY_PATH=/usr/local/python/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 
 # https://www.linuxfromscratch.org/blfs/view/stable/general/python3.html
+
+# Install python3 
 
 RUN apt-get update && \
     apt-get install --assume-yes --no-install-recommends \
         zlib1g-dev
 
-ARG PYTHON_VERSION="3.10.1"
+ARG PYTHON_VERSION="3.9.9"
 
 RUN cd /tmp && \
     curl -O -k https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz && \
@@ -43,3 +151,80 @@ RUN cd /tmp && \
     make && \
     make install
 
+# Set CFLAGS for roboticstoolbox installation
+
+ENV CFLAGS="--std=c99"
+
+# Install robotics toolbox
+
+RUN /usr/local/python/bin/pip3 install roboticstoolbox-python
+
+# Set the default locale
+
+ARG LOCALE="en_US.UTF-8"
+
+RUN locale-gen en_US.UTF-8 && \
+    update-locale LANG=en_US.UTF-8
+
+ENV LANG=en_US.UTF-8
+
+# Install dependencies for the user
+
+RUN apt-get update && \
+    apt-get install -y \
+        curl \
+        less \
+        sudo \
+        unzip \
+        vim \
+        wget \
+        zip
+
+# Create the user
+
+ARG USERNAME="scott"
+
+RUN useradd -m ${USERNAME} && \
+    echo "$USERNAME:$USERNAME" | chpasswd && \
+    usermod --shell /bin/bash $USERNAME && \
+    usermod -aG sudo $USERNAME && \
+    echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/$USERNAME && \
+    chmod 0440 /etc/sudoers.d/$USERNAME && \
+    usermod  --uid 1000 $USERNAME && \
+    groupmod --gid 1000 $USERNAME
+
+USER ${USERNAME}
+
+# Create a ROS workspace for the user
+
+RUN . /opt/baxter/devel/setup.sh && \
+    mkdir -p ~/workspace/src && \
+    cd ~/workspace && \
+    catkin_make && \
+    catkin_make install
+
+# Loading gazebo model locally to avoid connection to http://gazebosim.org 
+
+RUN mkdir ~/.gazebo \
+ && cd ~/.gazebo \
+ && git clone https://github.com/osrf/gazebo_models.git models
+
+# Disable the expired Let's Encrypt root certificates
+
+# RUN sed --in-place --regexp-extended "s/(mozilla\/DST_Root_CA_X3.crt)/\!\1/" /etc/ca-certificates.conf && \
+#     DEBIAN_FRONTEND=noninteractive dpkg-reconfigure ca-certificates 
+
+# Use Australian Ubuntu mirrors
+
+# RUN sed --in-place --regexp-extended "s/(\/\/)(archive\.ubuntu)/\1au.\2/" /etc/apt/sources.list
+
+
+# Source the workspace for the user
+
+RUN echo "source ~/workspace/devel/setup.bash" >> ~/.bashrc && \
+    echo "export ROS_MASTER_URI=http://baxter.local:11311" >> ~/.bashrc && \
+    echo "export ROS_IP=192.168.1.128" >> ~/.bashrc \
+    echo "export LD_LIBRARY_PATH=/usr/local/python/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> ~/.bashrc \
+    echo "export PATH=/usr/local/python/bin:$PATH" >> ~/.bashrc \
+    echo "export LD_LIBRARY_PATH=/usr/local/openssl/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> ~/.bashrc \
+    echo "export PATH=/usr/local/openssl/bin${PATH:+:$PATH}" >> ~/.bashrc
