@@ -390,11 +390,66 @@ write shell command file that exports required env variables (python3) and keep 
 
 # Fetch - manipulation
 
-## segmentation
-Detectron2
+## step 1. segmentation
 
-## determine grasp poses
+### working with the Asus Xtion Pro Live:
+https://robotica.unileon.es/index.php?title=PCL/OpenNI_tutorial_1:_Installing_and_testing
+This tutorial uses OpenNI1  
+
+Need OpenNI2, has a new firmware version that doesn't work with OpenNI1?
+- documented partially here https://github.com/nh2/asus-xtion-fix  
+- follow this https://roboram.wordpress.com/asus-xtion-pro-live-ubuntu-14-04-installation/  
+- installed `openjdk-8-jdk` instead of `openjdk-6-jdk` for ubuntu 18.04
+
+ROS package:  
+http://wiki.ros.org/openni2_launch  
+https://answers.ros.org/question/190377/how-to-setup-xtion-pro-live-ubuntu-1404-openni12/
+
+run with `roslaunch openni2_launch openni2.launch`
+
+### three options for segmentation:
+1. Ready-to-go ROS package https://wiki.ros.org/tabletop_object_detector
+- old
+- built with rosbuild rather than catkin
+- uses old package of pcl named simply 'pcl', newer version since kinetic has name 'pcl_ros'
+
+2. PCL ROS package https://github.com/jupidity/PCL-ROS-cluster-Segmentation
+- also old, but newer than first one
+- written in c++
+- code is bugged as is and does not build properly, see github issues
+- issues reading point cloud from ros topics
+
+3. Open3D approach https://towardsdatascience.com/how-to-automate-3d-point-cloud-segmentation-and-clustering-with-python-343c9039e4f5
+- newest
+- written in python
+- open3d point cloud data type is different to ROS message PointCloud2, for conversion: https://github.com/felixchenfy/open3d_ros_pointcloud_conversion
+
+
+## step 2. determine grasp poses
 For each item (with segmentation) / show all poses (no segmentation)  
 User chooses item / chooses pose  
 
-## moveit to plan and grasp object
+## step 3. moveit to plan and grasp object
+
+
+
+autonomy levels for robot teleoperation
+
+need to do lit review
+
+what has been done?
+
+user studies - what questions to ask? what criteria? training sessions?
+
+need to be part of proposal
+
+
+
+
+
+show to user:
+table 3d model + objects point cloud + detection bounding boxes
+
+compare:
+different view angles
+first, second, third person?
